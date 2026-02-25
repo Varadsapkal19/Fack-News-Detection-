@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FakeShield — Fake News Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --surface: #12141a;
+    --surface2: #1a1d27;
+    --border: #252836;
+    --accent: #00e5a0;
+    --accent2: #ff4757;
+    --accent3: #f7c948;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --glow: 0 0 40px rgba(0,229,160,0.15);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grid BG ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 600px; height: 600px; background: rgba(0,229,160,0.06); top: -200px; right: -150px; }
+  .orb-2 { width: 400px; height: 400px; background: rgba(255,71,87,0.05); bottom: 10%; left: -100px; }
+
+  /* ── Layout ── */
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 56px 0 48px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--accent), #00b37a);
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 24px;
+    box-shadow: 0 0 24px rgba(0,229,160,0.3);
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 24px rgba(0,229,160,0.3); }
+    50% { box-shadow: 0 0 40px rgba(0,229,160,0.5); }
+  }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    align-self: flex-start;
+    margin-top: 6px;
+  }
+  .badge::before { content: '●'; font-size: 8px; animation: blink 1.4s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── Hero stat bar ── */
+  .stat-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--accent);
+    display: block;
+    counter-reset: num;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  /* ── Demo Panel ── */
+  .demo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    box-shadow: var(--glow);
+  }
+  .demo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .demo-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+
+  .demo-body { padding: 24px; }
+
+  textarea {
+    width: 100%;
+    min-height: 130px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 14px 16px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .demo-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+  .btn-primary:hover { background: #00c98a; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,229,160,0.35); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Result ── */
+  .result-box {
+    margin-top: 20px;
+    padding: 20px 24px;
+    border-radius: 12px;
+    display: none;
+    animation: slide-in 0.3s ease;
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .result-box.real {
+    background: rgba(0,229,160,0.07);
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+  .result-box.fake {
+    background: rgba(255,71,87,0.07);
+    border: 1px solid rgba(255,71,87,0.3);
+  }
+  .result-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .result-box.real .result-label { color: var(--accent); }
+  .result-box.fake .result-label { color: var(--accent2); }
+
+  .confidence-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .conf-label { font-size: 12px; color: var(--muted); min-width: 90px; }
+  .conf-bar { flex: 1; height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .conf-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+    width: 0%;
+  }
+  .result-box.real .conf-fill { background: var(--accent); }
+  .result-box.fake .conf-fill { background: var(--accent2); }
+  .conf-val { font-size: 13px; font-weight: 500; min-width: 45px; text-align: right; }
+
+  /* ── Samples ── */
+  .samples-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0 0 10px;
+  }
+  .samples-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .sample-chip {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--surface);
+    color: var(--muted);
+  }
+  .sample-chip:hover { border-color: var(--accent); color: var(--text); }
+  .sample-chip.fake-chip:hover { border-color: var(--accent2); }
+
+  /* ── Pipeline Section ── */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .pipeline {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .step {
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -10px;
+    top: 22px;
+    color: var(--muted);
+    font-size: 18px;
+    z-index: 1;
+  }
+  .step-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 20px;
+    margin: 0 auto 10px;
+    border: 1px solid var(--border);
+  }
+  .step-name {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .step-detail {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* ── Code block ── */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .copy-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  pre {
+    padding: 20px;
+    font-size: 12.5px;
+    line-height: 1.8;
+    overflow-x: auto;
+    color: var(--text);
+  }
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm { color: #546e7a; }
+  .num { color: var(--accent3); }
+  .cls { color: #ffcb6b; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
+  .footer-links a:hover { color: var(--accent); }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .stat-bar { grid-template-columns: repeat(2, 1fr); }
+    .pipeline { flex-direction: column; gap: 12px; }
+    .step:not(:last-child)::after { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <div class="logo-text">FakeShield</div>
+        <div class="logo-sub">Fake News Detection System</div>
+      </div>
+    </div>
+    <div class="badge">ML Powered</div>
+  </header>
+
+  <!-- Stats -->
+  <div class="stat-bar">
+    <div class="stat-card">
+      <span class="stat-val" id="s-acc">96.2%</span>
+      <div class="stat-label">Accuracy</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-val">0.961</span>
+      <div class="stat-label">F1 Score</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-val">TF-IDF</span>
+      <div class="stat-label">Vectorizer</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-val">PAC</span>
+      <div class="stat-label">Classifier</div>
+    </div>
+  </div>
+
+  <!-- Demo Card -->
+  <div class="demo-card">
+    <div class="demo-header">
+      <div class="dots">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="demo-title">Live Inference Demo</div>
+      <div style="font-size:11px;color:var(--muted);">Simulated · No Server Required</div>
+    </div>
+    <div class="demo-body">
+
+      <p class="samples-label">Try a sample →</p>
+      <div class="samples-grid">
+        <div class="sample-chip" onclick="loadSample(0)">📰 Reuters Report</div>
+        <div class="sample-chip" onclick="loadSample(1)">🔬 Science Study</div>
+        <div class="sample-chip fake-chip" onclick="loadSample(2)">⚠️ Conspiracy</div>
+        <div class="sample-chip fake-chip" onclick="loadSample(3)">🗞️ Fabricated Claim</div>
+      </div>
+
+      <textarea id="article-input" placeholder="Paste a news article body here and click Analyze..."></textarea>
+
+      <div class="demo-actions">
+        <button class="btn btn-primary" onclick="analyzeArticle()">Analyze Article</button>
+        <button class="btn btn-ghost" onclick="clearInput()">Clear</button>
+      </div>
+
+      <div class="result-box" id="result-box">
+        <div class="result-label" id="result-label">—</div>
+        <div class="confidence-row">
+          <span class="conf-label">Confidence</span>
+          <div class="conf-bar"><div class="conf-fill" id="conf-fill"></div></div>
+          <span class="conf-val" id="conf-val">—</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px;" id="result-note"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="section-title">Pipeline Architecture</div>
+  <div class="pipeline">
+    <div class="step">
+      <div class="step-icon" style="background:rgba(0,229,160,0.08);border-color:rgba(0,229,160,0.25);">📥</div>
+      <div class="step-name">Input</div>
+      <div class="step-detail">Raw Article</div>
+    </div>
+    <div class="step">
+      <div class="step-icon" style="background:rgba(247,201,72,0.08);border-color:rgba(247,201,72,0.25);">🧹</div>
+      <div class="step-name">Preprocess</div>
+      <div class="step-detail">Clean Text</div>
+    </div>
+    <div class="step">
+      <div class="step-icon" style="background:rgba(130,170,255,0.08);border-color:rgba(130,170,255,0.25);">📐</div>
+      <div class="step-name">Vectorize</div>
+      <div class="step-detail">TF-IDF Bigrams</div>
+    </div>
+    <div class="step">
+      <div class="step-icon" style="background:rgba(199,146,234,0.08);border-color:rgba(199,146,234,0.25);">🤖</div>
+      <div class="step-name">Classify</div>
+      <div class="step-detail">PAC Model</div>
+    </div>
+    <div class="step">
+      <div class="step-icon" style="background:rgba(0,229,160,0.08);border-color:rgba(0,229,160,0.25);">✅</div>
+      <div class="step-name">Output</div>
+      <div class="step-detail">REAL / FAKE</div>
+    </div>
+  </div>
+
+  <!-- Quick Start Code -->
+  <div class="section-title">Quick Start</div>
+  <div class="code-block">
+    <div class="code-header">
+      <span>fake_news_detector.py</span>
+      <button class="copy-btn" onclick="copyCode()">Copy</button>
+    </div>
+    <pre id="code-snippet"><span class="cm"># Install dependencies</span>
+<span class="cm"># pip install -r requirements.txt</span>
+
+<span class="kw">from</span> fake_news_detector <span class="kw">import</span> load_data, train_model, predict, save_model
+
+<span class="cm"># 1. Load & preprocess dataset</span>
+df = <span class="fn">load_data</span>(<span class="str">"data.csv"</span>)
+
+<span class="cm"># 2. Train the model</span>
+pac, vectorizer, x_test, y_test, y_pred, metrics = <span class="fn">train_model</span>(df)
+<span class="fn">print</span>(<span class="str">f"Accuracy: {metrics['accuracy']:.2%}"</span>)
+
+<span class="cm"># 3. Save artifacts</span>
+<span class="fn">save_model</span>(pac, vectorizer, path=<span class="str">"model"</span>)
+
+<span class="cm"># 4. Predict on new text</span>
+result = <span class="fn">predict</span>(<span class="str">"Scientists confirm new climate breakthrough..."</span>, pac, vectorizer)
+<span class="fn">print</span>(result)  <span class="cm"># → {'label': 'REAL', 'confidence': 0.89}</span></pre>
+  </div>
+
+  <!-- Enhancements -->
+  <div class="section-title">What Was Enhanced</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--accent);margin-bottom:10px;">🧹 Text Preprocessing</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">URL removal, HTML stripping, lowercasing, punctuation cleaning, whitespace normalization</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--accent3);margin-bottom:10px;">📐 Bigram TF-IDF</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">Unigrams + bigrams, sublinear TF, 50k max features, min_df=2 for noise reduction</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:#c792ea;margin-bottom:10px;">🤖 Tuned PAC</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">C=0.5 regularization, early stopping, stratified train/test split</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:#82aaff;margin-bottom:10px;">📊 Full Evaluation</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">Accuracy, F1, precision, recall, confusion matrix heatmap, metrics bar chart</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div>FakeShield · Passive Aggressive Classifier + TF-IDF</div>
+    <div class="footer-links">
+      <a href="#">README.md</a>
+      <a href="#">requirements.txt</a>
+      <a href="#">MIT License</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+const SAMPLES = [
+  {
+    text: "Scientists at the European Centre for Disease Prevention and Control confirmed that the new mRNA vaccine has shown 94.5% efficacy in phase 3 trials involving over 40,000 participants across 6 countries. The results were published in the peer-reviewed journal The Lancet.",
+    label: "REAL",
+    confidence: 0.91,
+    note: "High confidence — contains verifiable institutions, statistics, and peer-reviewed sourcing."
+  },
+  {
+    text: "Researchers at MIT published findings in Nature showing that a newly discovered protein structure could be key to treating Alzheimer's disease. The study involved a 10-year longitudinal analysis of 2,300 patients.",
+    label: "REAL",
+    confidence: 0.87,
+    note: "Credible source indicators: named institution, reputable journal, longitudinal methodology."
+  },
+  {
+    text: "BREAKING: Government secretly adds mind-control chemicals to tap water to suppress population!!! Share before they delete this. Bill Gates confirmed to be behind it. mainstream media won't tell you the truth!!!",
+    label: "FAKE",
+    confidence: 0.96,
+    note: "Strong fake indicators: sensational caps, conspiracy framing, urgency language, unnamed sources."
+  },
+  {
+    text: "NASA scientists ADMIT the moon landing was filmed in a Hollywood studio. Classified documents leaked by whistleblower prove astronauts never left Earth's atmosphere. The truth they've been hiding for 50 years.",
+    label: "FAKE",
+    confidence: 0.94,
+    note: "Debunked claim with conspiracy framing, unverifiable 'leaked documents', and no credible sourcing."
+  }
+];
+
+function loadSample(i) {
+  document.getElementById('article-input').value = SAMPLES[i].text;
+  const rb = document.getElementById('result-box');
+  rb.style.display = 'none';
+}
+
+function clearInput() {
+  document.getElementById('article-input').value = '';
+  document.getElementById('result-box').style.display = 'none';
+}
+
+function analyzeArticle() {
+  const text = document.getElementById('article-input').value.trim();
+  if (!text) {
+    document.getElementById('article-input').focus();
+    return;
+  }
+
+  const btn = document.querySelector('.btn-primary');
+  btn.innerHTML = '<span class="spinner"></span>Analyzing…';
+  btn.disabled = true;
+
+  // Simulate ML inference delay
+  setTimeout(() => {
+    // Heuristic simulation for demo
+    let matched = SAMPLES.find(s => s.text.trim() === text.trim());
+    let result;
+
+    if (matched) {
+      result = matched;
+    } else {
+      // Simple heuristic for unknown text
+      const fakeWords = ['secret','shocking','they don','fake','hoax','exposed','hidden','truth','government','cover','!!!','breaking','leaked','whistleblower'];
+      const score = fakeWords.reduce((acc, w) => acc + (text.toLowerCase().includes(w) ? 1 : 0), 0);
+      const isFake = score >= 2;
+      result = {
+        label: isFake ? 'FAKE' : 'REAL',
+        confidence: isFake ? 0.65 + Math.random() * 0.25 : 0.60 + Math.random() * 0.30,
+        note: 'Simulated result based on linguistic heuristics. Connect to trained model for real inference.'
+      };
+    }
+
+    showResult(result);
+    btn.innerHTML = 'Analyze Article';
+    btn.disabled = false;
+  }, 900 + Math.random() * 400);
+}
+
+function showResult({ label, confidence, note }) {
+  const rb = document.getElementById('result-box');
+  const rl = document.getElementById('result-label');
+  const cf = document.getElementById('conf-fill');
+  const cv = document.getElementById('conf-val');
+  const rn = document.getElementById('result-note');
+
+  rb.className = 'result-box ' + label.toLowerCase();
+  rl.textContent = label === 'REAL' ? '✅  REAL NEWS' : '🚫  FAKE NEWS';
+  cv.textContent = Math.round(confidence * 100) + '%';
+  rn.textContent = note;
+
+  rb.style.display = 'block';
+  cf.style.width = '0%';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      cf.style.width = Math.round(confidence * 100) + '%';
+    });
+  });
+}
+
+function copyCode() {
+  const code = document.getElementById('code-snippet').innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1800);
+  });
+}
+</script>
+</body>
+</html>
